@@ -8,6 +8,7 @@ setup(
         "slackclient==1.3.2",
         "appdirs==1.4.3",
         "colored==1.4.2",
+        "python-dateutil==2.8.1",
     ],
     packages=['slack_dashboard'],
     entry_points={
