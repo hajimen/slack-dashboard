@@ -118,7 +118,15 @@ class Session:
             if 'user' in m:
                 un = self.sc.server.users.get(m['user']).real_name
             elif 'bot_id' in m:
-                un = self.bot_profile_cache[m['bot_id']]
+                if m['bot_id'] in self.bot_profile_cache:
+                    un = self.bot_profile_cache[m['bot_id']]
+                else:
+                    r = self.sc.api_call('bots.info', bot=m['bot_id'])
+                    if 'bot' in r:
+                        un = r['bot']['name']
+                        self.bot_profile_cache[m['bot_id']] = un
+                    else:
+                        un = 'unknown bot'
             if 'channel' in m:
                 cn = self.sc.server.channels.find(m['channel']).name
             else:
