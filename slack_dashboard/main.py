@@ -26,7 +26,7 @@ def main():
         except SlackConnectionError:
             t = datetime.now()
             if last_error is not None:
-                if t - last_error > ERROR_SPAN_TH:
+                if t - last_error < ERROR_SPAN_TH:
                     n_error += 1
                     if n_error > MAX_ERROR:
                         print('Network connection is unstable or lost.')
