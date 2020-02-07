@@ -2,7 +2,7 @@ from setuptools import setup
 
 setup(
     name="slack-dashboard",
-    version="0.0.2",
+    version="0.0.3",
     description="Slack dashboard",
     install_requires=[
         "slackclient==1.3.2",

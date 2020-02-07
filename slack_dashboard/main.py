@@ -5,7 +5,7 @@ import time
 import slack_dashboard.token_util as token_util
 from slackclient import SlackClient
 from slackclient.server import SlackConnectionError
-from colored import attr
+import curses
 import appdirs
 
 MAX_ERROR = 3
@@ -16,36 +16,58 @@ LMR_PATH = os.path.join(appdirs.user_config_dir(APP_NAME), "last_msg_received")
 
 
 def main():
+    print(curses.wrapper(main_impl))
+
+
+def main_impl(stdscr):
     n_error = 0
     last_error = None
+    exit_msg = ''
     while True:
         try:
-            s = Session()
-            s.connect()
+            s = Session(stdscr)
+            exit_msg = s.connect()
             break
-        except SlackConnectionError:
+        except (SlackConnectionError, TimeoutError):
             t = datetime.now()
             if last_error is not None:
                 if t - last_error < ERROR_SPAN_TH:
                     n_error += 1
                     if n_error > MAX_ERROR:
-                        print('Network connection is unstable or lost.')
-                        return
+                        exit_msg = 'Network connection is unstable or lost.'
+                        break
                 else:
                     n_error = 0
             last_error = t
             time.sleep(10.)
         except KeyboardInterrupt:
-            print('Exit by Ctrl+C.')
-            return
+            exit_msg = 'slack-dashboard exit by Ctrl+C.'
+            break
+
+    return exit_msg
+
 
 class Session:
-    def __init__(self):
+    def __init__(self, stdscr):
         self.last_t = None
         self.bot_profile_cache = {}
         self.sc = None
 
-    def set_last_msg_received(self, t: datetime):
+        curses.curs_set(0)
+        full_h, full_w = stdscr.getmaxyx()
+        webhook_win = curses.newwin(full_h - 2, full_w, 0, 0)
+        webhook_win.scrollok(1)
+        status_win = curses.newwin(1, full_w, full_h - 2, 0)
+        status_win.scrollok(1)
+        curses.init_pair(1, curses.COLOR_BLACK, curses.COLOR_YELLOW)
+        status_win.bkgd(' ', curses.color_pair(1))
+        status_win.refresh()
+        prompt_win = curses.newwin(1, full_w, full_h - 1, 0)
+        prompt_win.scrollok(1)
+        self.stdscr = stdscr
+        self.webhook_win, self.status_win, self.prompt_win = webhook_win, status_win, prompt_win
+
+    def set_last_msg_received(self, t):
         d = os.path.dirname(LMR_PATH)
         if not os.path.exists(d):
             os.makedirs(d)
@@ -65,7 +87,7 @@ class Session:
         must_save_token = False
         token = token_util.load()
         if not token:
-            token = token_util.ask()
+            token = token_util.ask(self.webhook_win, self.status_win, self.prompt_win)
             must_save_token = True
 
         self.sc = SlackClient(token)
@@ -93,18 +115,42 @@ class Session:
                 m_dict[ts] = m
 
         if self.sc.rtm_connect():
+            self.status_win.erase()
+            self.status_win.refresh()
+            self.webhook_win.nodelay(True)
+            self.webhook_win.erase()
+            self.webhook_win.refresh()
             if must_save_token:
                 token_util.save_default(token)
                 must_save_token = False
             for ts in sorted(m_dict.keys()):
                 self.print_msg(m_dict[ts])
+            self.webhook_win.refresh()
             while True:
                 ms = self.sc.rtm_read()
+                self.status_win.erase()
+                self.status_win.addstr('Last connected: ' + datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
+                self.status_win.refresh()
                 for m in ms:
                     self.print_msg(m)
-                time.sleep(10.)
+                self.webhook_win.refresh()
+                for _ in range(100):
+                    time.sleep(0.1)
+                    k = self.webhook_win.getch()
+                    if k == curses.KEY_RESIZE:
+                        full_h, full_w = self.stdscr.getmaxyx()
+                        self.webhook_win.resize(full_h - 2, full_w)
+                        self.webhook_win.refresh()
+                        self.status_win.resize(1, full_w)
+                        self.status_win.mvwin(full_h - 2, 0)
+                        self.status_win.refresh()
+                        self.prompt_win.resize(1, full_w)
+                        self.prompt_win.mvwin(full_h - 1, 0)
+                        self.prompt_win.refresh()
+                    if k == 3:  # CTRL-C
+                        raise KeyboardInterrupt('Ctrl-C')
         else:
-            print("Connection Failed, invalid token?")
+            return "Connection Failed, invalid token?"
 
     def print_msg(self, m):
         if 'bot_profile' in m:
@@ -113,7 +159,7 @@ class Session:
         if m['type'] == 'message':
             t = datetime.fromtimestamp(float(m['ts']))
             if self.last_t is not None and t.day != self.last_t.day:
-                print('######### ' + t.strftime("%Y-%m-%d") + ' #########')
+                self.webhook_win.addstr('######### ' + t.strftime("%Y-%m-%d") + ' #########\n')
             self.last_t = t
             if 'user' in m:
                 un = self.sc.server.users.get(m['user']).real_name
@@ -131,9 +177,7 @@ class Session:
                 cn = self.sc.server.channels.find(m['channel']).name
             else:
                 cn = 'unknown'
-            print(attr('underlined') + '@' + cn + '(' + t.strftime("%Y-%m-%d %H:%M:%S") + ')' \
-                    + attr('bold') + '[' + un + ']' + attr('reset') + ' - ' + m['text'])
+            self.webhook_win.addstr('@' + cn + '(' + t.strftime("%Y-%m-%d %H:%M:%S") + ')', curses.A_UNDERLINE)
+            self.webhook_win.addstr('[' + un + ']', curses.A_UNDERLINE | curses.A_BOLD)
+            self.webhook_win.addstr(' - ' + m['text'] + '\n')
             self.set_last_msg_received(t)
-
-if __name__ == "__main__":
-    main()
