@@ -1,18 +1,16 @@
-import os
 from datetime import datetime, timedelta
-from dateutil.parser import parse
 import time
 import slack_dashboard.token_util as token_util
 from slackclient import SlackClient
 from slackclient.server import SlackConnectionError
 import curses
-import appdirs
+from requests.exceptions import ConnectionError
 
 MAX_ERROR = 3
 ERROR_SPAN_TH = timedelta(seconds=30.)
+INIT_SPAN = timedelta(days=7)
 
 APP_NAME = 'slack-dashboard'
-LMR_PATH = os.path.join(appdirs.user_config_dir(APP_NAME), "last_msg_received")
 
 
 def main():
@@ -28,7 +26,7 @@ def main_impl(stdscr):
             s = Session(stdscr)
             exit_msg = s.connect()
             break
-        except (SlackConnectionError, TimeoutError):
+        except (SlackConnectionError, TimeoutError, ConnectionError):
             t = datetime.now()
             if last_error is not None:
                 if t - last_error < ERROR_SPAN_TH:
@@ -67,22 +65,6 @@ class Session:
         self.stdscr = stdscr
         self.webhook_win, self.status_win, self.prompt_win = webhook_win, status_win, prompt_win
 
-    def set_last_msg_received(self, t):
-        d = os.path.dirname(LMR_PATH)
-        if not os.path.exists(d):
-            os.makedirs(d)
-        with open(LMR_PATH, 'w') as f:
-            f.write(str(t))
-
-    def get_last_msg_received(self):
-        if not os.path.isfile(LMR_PATH):
-            t = datetime.now()
-            self.set_last_msg_received(t)
-            return t
-        with open(LMR_PATH, 'r') as f:
-            s = f.read()
-        return parse(s)
-
     def connect(self):
         must_save_token = False
         token = token_util.load()
@@ -95,7 +77,7 @@ class Session:
         cs = self.sc.api_call('users.conversations')
         m_dict = {}
 
-        self.last_t = self.get_last_msg_received()
+        self.last_t = datetime.now() - INIT_SPAN
         last_ts = self.last_t.timestamp()
         for c in cs['channels']:
             cid = c['id']
@@ -180,4 +162,3 @@ class Session:
             self.webhook_win.addstr('@' + cn + '(' + t.strftime("%Y-%m-%d %H:%M:%S") + ')', curses.A_UNDERLINE)
             self.webhook_win.addstr('[' + un + ']', curses.A_UNDERLINE | curses.A_BOLD)
             self.webhook_win.addstr(' - ' + m['text'] + '\n')
-            self.set_last_msg_received(t)
