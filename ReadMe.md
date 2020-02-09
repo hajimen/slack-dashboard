@@ -30,7 +30,7 @@ No quality. This is just a hack for myself, my life.
 
 ## My use
 
-Monitoring of an online service, (Zygomatic Color)[https://zm-color.com/].
+Monitoring of an online service, [Zygomatic Color](https://zm-color.com/).
 
 ## License
 
