@@ -2,13 +2,11 @@ from setuptools import setup
 
 setup(
     name="slack-dashboard",
-    version="0.0.3",
+    version="0.1.0",
     description="Slack dashboard",
     install_requires=[
         "slackclient==1.3.2",
         "appdirs==1.4.3",
-        "colored==1.4.2",
-        "python-dateutil==2.8.1",
     ],
     packages=['slack_dashboard'],
     entry_points={
@@ -18,10 +16,10 @@ setup(
     },
     classifiers=[
         'Programming Language :: Python',
-        'Programming Language :: Python :: 2.7',
-        'Programming Language :: Python :: 3.3',
         'Programming Language :: Python :: 3.4',
         'Programming Language :: Python :: 3.5',
         'Programming Language :: Python :: 3.6',
+        'Programming Language :: Python :: 3.7',
+        'Programming Language :: Python :: 3.8',
     ]
 )

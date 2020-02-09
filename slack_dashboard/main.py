@@ -13,8 +13,17 @@ INIT_SPAN = timedelta(days=7)
 APP_NAME = 'slack-dashboard'
 
 
+class WindowResizeException(Exception):
+    pass
+
+
 def main():
-    print(curses.wrapper(main_impl))
+    while True:
+        try:
+            print(curses.wrapper(main_impl))
+            break
+        except WindowResizeException:
+            pass
 
 
 def main_impl(stdscr):
@@ -50,6 +59,7 @@ class Session:
         self.last_t = None
         self.bot_profile_cache = {}
         self.sc = None
+        self.m_dict = None
 
         curses.curs_set(0)
         full_h, full_w = stdscr.getmaxyx()
@@ -65,17 +75,9 @@ class Session:
         self.stdscr = stdscr
         self.webhook_win, self.status_win, self.prompt_win = webhook_win, status_win, prompt_win
 
-    def connect(self):
-        must_save_token = False
-        token = token_util.load()
-        if not token:
-            token = token_util.ask(self.webhook_win, self.status_win, self.prompt_win)
-            must_save_token = True
-
-        self.sc = SlackClient(token)
-
+    def restore_old_msg(self):
         cs = self.sc.api_call('users.conversations')
-        m_dict = {}
+        self.m_dict = {}
 
         self.last_t = datetime.now() - INIT_SPAN
         last_ts = self.last_t.timestamp()
@@ -94,7 +96,17 @@ class Session:
                 if abs(ts - last_ts) < 0.01:
                     continue
                 m['channel'] = cid
-                m_dict[ts] = m
+                self.m_dict[ts] = m
+
+    def connect(self):
+        must_save_token = False
+        token = token_util.load()
+        if not token:
+            token = token_util.ask(self.webhook_win, self.status_win, self.prompt_win)
+            must_save_token = True
+
+        self.sc = SlackClient(token)
+        self.restore_old_msg()
 
         if self.sc.rtm_connect():
             self.status_win.erase()
@@ -105,8 +117,8 @@ class Session:
             if must_save_token:
                 token_util.save_default(token)
                 must_save_token = False
-            for ts in sorted(m_dict.keys()):
-                self.print_msg(m_dict[ts])
+            for ts in sorted(self.m_dict.keys()):
+                self.print_msg(self.m_dict[ts])
             self.webhook_win.refresh()
             while True:
                 ms = self.sc.rtm_read()
@@ -120,15 +132,10 @@ class Session:
                     time.sleep(0.1)
                     k = self.webhook_win.getch()
                     if k == curses.KEY_RESIZE:
-                        full_h, full_w = self.stdscr.getmaxyx()
-                        self.webhook_win.resize(full_h - 2, full_w)
-                        self.webhook_win.refresh()
-                        self.status_win.resize(1, full_w)
-                        self.status_win.mvwin(full_h - 2, 0)
-                        self.status_win.refresh()
-                        self.prompt_win.resize(1, full_w)
-                        self.prompt_win.mvwin(full_h - 1, 0)
-                        self.prompt_win.refresh()
+                        time.sleep(1)  # wait tranquilizing
+                        while self.webhook_win.getch() != -1:  # ignore other curses.KEY_RESIZE
+                            pass
+                        raise WindowResizeException()
                     if k == 3:  # CTRL-C
                         raise KeyboardInterrupt('Ctrl-C')
         else:
