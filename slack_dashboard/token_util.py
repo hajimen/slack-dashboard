@@ -46,7 +46,7 @@ This message will only appear once. After the first run, the Slack API token wil
         prompt_win.refresh()
 
         def enter_is_terminate(x):
-            if x == 10:
+            if x == curses.KEY_ENTER or x == 10 or x == 13:
                 x = 7
             return x
 

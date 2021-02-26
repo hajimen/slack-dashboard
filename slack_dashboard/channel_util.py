@@ -44,7 +44,7 @@ Available channels: """ + acn + "\n\nThis message will only appear once. After t
         prompt_win.refresh()
 
         def enter_is_terminate(x):
-            if x == 10:
+            if x == curses.KEY_ENTER or x == 10 or x == 13:
                 x = 7
             return x
 
