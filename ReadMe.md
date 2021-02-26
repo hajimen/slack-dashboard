@@ -9,13 +9,15 @@ In Windows, you need `windows-curses` or something. But `windows-curses` lacks r
 
 Works on Python 3.4 and later. In other words, works on hacked Kobo Touch.
 
+You need a legacy token. You don't have it? Sorry, it's too late.
+
 ## How to use
 
 Just execute `slack-dashboard` on your shell.
 
 ## Main feature
 
-Shows the workspace of a legacy token.
+Shows a channel of an workspace of a legacy token.
 
 ## Main non-feature
 
@@ -23,7 +25,7 @@ This isn't a terminal. It is a dashboard. Cannot send any message.
 
 No operation. You just look at it. Exit by Ctrl-C.
 
-No kindness. When you need to change the Slack token, remove old configuration files.
+No kindness. When you need to change the Slack token or channel, remove old configuration files.
 `appdirs` decides the directory. In Ubuntu, `~/.config/slack-dashboard'.
 
 No quality. This is just a hack for myself, my life.
@@ -31,6 +33,18 @@ No quality. This is just a hack for myself, my life.
 ## My use
 
 Monitoring of an online service, [Zygomatic Color](https://zm-color.com/).
+
+## Version history
+
+### 0.1.1
+
+Fix: Slack API stopped to accept ['channels.history'](https://api.slack.com/methods/channels.history) call.
+
+Change: Now slack-dashboard listen on just a channel, not an workspace whole.
+
+### 0.1.0
+
+Initial version.
 
 ## License
 

@@ -1,6 +1,7 @@
 from datetime import datetime, timedelta
 import time
 import slack_dashboard.token_util as token_util
+import slack_dashboard.channel_util as channel_util
 from slackclient import SlackClient
 from slackclient.server import SlackConnectionError
 import curses
@@ -60,6 +61,8 @@ class Session:
         self.bot_profile_cache = {}
         self.sc = None
         self.m_dict = None
+        self.ch = None
+        self.ch_name = None
 
         curses.curs_set(0)
         full_h, full_w = stdscr.getmaxyx()
@@ -79,24 +82,36 @@ class Session:
         cs = self.sc.api_call('users.conversations')
         self.m_dict = {}
 
+        self.ch = channel_util.load()
+        if self.ch:
+            for c in cs['channels']:
+                if c['id'] == self.ch:
+                    self.ch_name = c['name']
+        else:
+            available_ch_names = [c['name'] for c in cs['channels']]
+            self.ch_name = channel_util.ask_name(self.webhook_win, self.status_win, self.prompt_win, available_ch_names)
+            for c in cs['channels']:
+                if c['name'] == self.ch_name:
+                    self.ch = c['id']
+                    channel_util.save_default(self.ch)
+                    break
+
         self.last_t = datetime.now() - INIT_SPAN
         last_ts = self.last_t.timestamp()
-        for c in cs['channels']:
-            cid = c['id']
-            ms = self.sc.api_call(
-                'channels.history',
-                oldest=str(last_ts),
-                channel=cid)
-            if not ('messages' in ms):
+        ms = self.sc.api_call(
+            'conversations.history',
+            oldest=str(last_ts),
+            channel=self.ch)
+        if not ('messages' in ms):
+            return
+        for m in ms['messages']:
+            if m['type'] != 'message':
                 continue
-            for m in ms['messages']:
-                if m['type'] != 'message':
-                    continue
-                ts = float(m['ts'])
-                if abs(ts - last_ts) < 0.01:
-                    continue
-                m['channel'] = cid
-                self.m_dict[ts] = m
+            ts = float(m['ts'])
+            if abs(ts - last_ts) < 0.01:
+                continue
+            m['channel'] = self.ch
+            self.m_dict[ts] = m
 
     def connect(self):
         must_save_token = False
@@ -163,7 +178,9 @@ class Session:
                     else:
                         un = 'unknown bot'
             if 'channel' in m:
-                cn = self.sc.server.channels.find(m['channel']).name
+                if m['channel'] != self.ch:
+                    return
+                cn = self.ch_name
             else:
                 cn = 'unknown'
             self.webhook_win.addstr('@' + cn + '(' + t.strftime("%Y-%m-%d %H:%M:%S") + ')', curses.A_UNDERLINE)
