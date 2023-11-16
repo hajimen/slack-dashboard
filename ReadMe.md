@@ -1,5 +1,7 @@
 # Slack dashboard
 
+CUI Slack viewer.
+
 You shouldn't look at any notifications when you don't want to respond them.
 Switch your life from notification to dashboard. A dashboard doesn't disturb you worthlessly. 
 
@@ -7,17 +9,25 @@ Switch your life from notification to dashboard. A dashboard doesn't disturb you
 
 In Windows, you need `windows-curses` or something. But `windows-curses` lacks resize feature.
 
-Works on Python 3.4 and later. In other words, works on hacked Kobo Touch.
+Works on Python 3.7 and later.
 
-You need a legacy token. You don't have it? Sorry, it's too late.
+You need a bot user OAuth token. It should starts with "xoxb-". The scope should have:
+
+- channels:history
+- channels:read
+- users:read
 
 ## How to use
+
+Clone the repo and install by `python setup.py`.
 
 Just execute `slack-dashboard` on your shell.
 
 ## Main feature
 
-Shows a channel of an workspace of a legacy token.
+Shows a channel of an workspace of the token.
+
+Just messages in this week.
 
 ## Main non-feature
 
@@ -36,6 +46,12 @@ Monitoring of an online service, [Zygomatic Color](https://zm-color.com/).
 
 ## Version history
 
+### 0.2.0
+
+Fully updated to the latest Slack API.
+
+Python 3.7 is required now.
+
 ### 0.1.1
 
 Fix: Slack API stopped to accept ['channels.history'](https://api.slack.com/methods/channels.history) call.
@@ -48,7 +64,7 @@ Initial version.
 
 ## License
 
-Copyright 2020 Hajime Nakazato
+Copyright 2020-2023 Hajime Nakazato
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
